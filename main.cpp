@@ -1,382 +1,599 @@
 #include <iostream>
-#include <list>
 #include <string>
-#include <math.h>
+#include <sstream>
+#include <queue>
+#include <algorithm>
+#include <stack>
 
 using namespace std;
 
-list<int> schoolAddition(list<int> num1, list<int> num2, int base){
-    // Initialise carry and sum
-    int carry = 0;
-    list<int> sum;
+struct Node{
+    int value = 0;
+    Node* left = NULL;
+    Node* right = NULL;
+};
 
-    // For every pair of digits, add them plus the last carry into sum
-    while (!(num1.empty() && num2.empty())){
-        int digit1 = 0;
-        int digit2 = 0;
+class Tree{
+private:
+    Node* root;
+    // Print functions
+    void PrintPreOrderRecursive(Node* currentNode);
+    void PrintInOrderRecursive(Node* currentNode);
+    void PrintPostOrderRecursive(Node* currentNode);
+    // Insert functions
+    Node* FindInsertSpotRecursive(int inputNum, Node* currentNode);
+    Node* FindInsertSpot(int inputNum);
+    Node* FindParent(int inputNum);
+    // Remove functions
+    Node* FindLargestSmallerThanParent(Node* inputNode);
+    void RemoveTwoChildNode(Node* nodeToRemove);
+    // Rebalance functions
+    int GetHeight(Node* heightRoot);
+    int GetBalanceFactor(Node* heightRoot);
+    void LeftRotation(Node* rotRoot);
+    void RightRotation(Node* rotRoot);
+    void LeftRightRotation(Node* rotRoot);
+    void RightLeftRotation(Node* rotRoot);
+    void RebalanceNode(Node* rebalanceRoot);
+    void RebalanceTree(Node* updatedNode);
+public:
+    Tree();
+    ~Tree();
+    bool Empty();
+    void Insert(int inputNum);
+    void Remove(int inputNum);
+    void Print(string order);
+};
 
-        if (!num1.empty()){
-            digit1 = num1.back();
-            num1.pop_back();
-        } 
-        if (!num2.empty()){
-            digit2 = num2.back();
-            num2.pop_back();
-        }
-        // cout << "Digit 1: " << digit1 << " Digit 2: " << digit2 << endl;
-        
-        int digitSum = digit1 + digit2 + carry;
-        // If sum is equal or greater than the base,
-        if (digitSum >= base){
-            // Make next carry equal 1 and make the sum the modulo of the base
-            carry = 1;
-            digitSum = digitSum % base;
-        } else {
-            carry = 0;
-        }
-        // cout << "Carry: " << carry << " digitSum: " << digitSum << endl;
-        sum.push_front(digitSum);
-    }
-
-    // After the loop, add the carry to the sum
-    if (carry == 1){
-        sum.push_front(carry);
-    }
-    return sum;
+Tree::Tree(){
+    root = NULL;
 }
 
-list<int> schoolSubtractionHelper(list<int> num1, list<int> num2, int base){
-    // Initialise carry and sub
-    int carry = 0;
-    list<int> sub;
-
-    // For every pair of digits, add them plus the last carry into sub
-    while (!(num1.empty() && num2.empty())){
-        int digit1 = 0;
-        int digit2 = 0;
-
-        if (!num1.empty()){
-            digit1 = num1.back();
-            num1.pop_back();
-        } 
-        if (!num2.empty()){
-            digit2 = num2.back();
-            num2.pop_back();
-        }
-
-        // Subtract the next numbers and subtract the carry
-        int digitSub = digit1 - digit2 - carry;
-
-        // If we're at the front pair of digits,
-        // subtract the numbers and subtract the carry, but don't add the base to leave the negative sign
-        if (num1.empty() && num2.empty()){
-            sub.push_front(digitSub);
-            return sub;
-        
-        } else if (digitSub < 0){
-            // if they go negative, add the base, and make the carry 1
-            carry = 1;
-            digitSub = digitSub + base;
-        } else {
-            // If not negative, make the carry 0
-            carry = 0;
-        }
-
-        sub.push_front(digitSub);
-    }
-
-    return sub;
+Tree::~Tree(){
 }
 
-/*
-Subtraction helper function:
-1. Check the first number's size, if larger, subtract
-2. If equal size, loop through both numbers from the front to the end,
-3. If a digit from the first is larger, set subtract bool,
-4. If a digit from the first is smaller, set flip subtract bool
-5. If did whole loop, completely equal, return a list just containing a single 0
-6. Else if subtract, return subtract
-7. Else if flip subtract, get subtract, add a negative sign
-*/
-list<int> schoolSubtraction(list<int> num1, list<int> num2, int base){
-    int size1 = num1.size();
-    int size2 = num2.size();
-    list<int> sub;
-    bool negative = false;
+// Returns if the tree is empty
+bool Tree::Empty(){
+    return root == NULL;
+}
 
-    if (size1 > size2){
-        sub = schoolSubtractionHelper(num1, num2, base);
-    } else if (size1 < size2){
-        sub = schoolSubtractionHelper(num2, num1, base);
-        negative = true;
+// Returns the height of a single node
+int Tree::GetHeight(Node* heightRoot){
+    if (heightRoot->left == NULL && heightRoot->right == NULL){
+        return 0;
+    } else if (heightRoot->left != NULL && heightRoot->right == NULL){
+        return GetHeight(heightRoot->left) + 1;
+    } else if (heightRoot->left == NULL && heightRoot->right != NULL){
+        return GetHeight(heightRoot->right) + 1;
     } else {
-        list<int>::iterator num2It = num2.begin();
+        return max(GetHeight(heightRoot->left) + 1, GetHeight(heightRoot->right) + 1);
+    }
+    
+    return 0;
+}
+
+// Returns the balance factor of a single node
+int Tree::GetBalanceFactor(Node* balanceRoot){
+    int leftHeight = 0;
+    int rightHeight = 0;
+
+    if (balanceRoot->left != NULL){
+        // +1 to include the height of the left node itself
+        leftHeight = GetHeight(balanceRoot->left) +1;
+    }
+    if (balanceRoot->right != NULL){
+        // +1 to include the height of the right node itself
+        rightHeight = GetHeight(balanceRoot->right) +1;
+    }
+    
+    return leftHeight - rightHeight;
+}
+
+void Tree::LeftRotation(Node* rotRoot){
+    Node* newRoot = new Node;
+    newRoot->value = rotRoot->right->value;
+    newRoot->right = rotRoot->right->right;
+    newRoot->left = rotRoot;
+    newRoot->left->right = rotRoot->right->left;
+    Node* parentNode = FindParent(rotRoot->value);
+
+    if (parentNode == NULL){
+        // cout << "Left rotation of root node: " << root->value << endl;
+        root = newRoot;
+        return;
+    } else if (parentNode->value > newRoot->value){
+        // cout << "Left rotation insert left of: " << parentNode->value << endl;
+        parentNode->left = newRoot;
+    } else if (parentNode->value < newRoot->value){
+        // cout << "Left rotation insert right of: " << parentNode->value << endl;
+        parentNode->right = newRoot;
+    }
+    
+    return;
+}
+
+void Tree::RightRotation(Node* rotRoot){
+    Node* newRoot = new Node;
+    newRoot->value = rotRoot->left->value;
+    newRoot->left = rotRoot->left->left;
+    newRoot->right = rotRoot;
+    newRoot->right->left = rotRoot->left->right;
+    Node* parentNode = FindParent(rotRoot->value);
+
+    if (parentNode == NULL){
+        // cout << "Right rotation of root node: " << root->value << endl;
+        root = newRoot;
+        return;
+    } else if (parentNode->value > newRoot->value){
+        // cout << "Right rotation insert left of: " << parentNode->value << endl;
+        parentNode->left = newRoot;
+    } else if (parentNode->value < newRoot->value){
+        // cout << "Right rotation insert right of: " << parentNode->value << endl;
+        parentNode->right = newRoot;
+    }
+    
+    return;
+}
+
+void Tree::LeftRightRotation(Node* rotRoot){
+    Node* newRoot = new Node;
+    Node* temp = rotRoot->left->right->right;
+    newRoot->value = rotRoot->left->right->value;
+    newRoot->left = rotRoot->left;
+    newRoot->left->right = rotRoot->left->right->left;
+    newRoot->right = rotRoot;
+    newRoot->right->left = temp;
+
+    Node* parentNode = FindParent(rotRoot->value);
+    if (parentNode == NULL){
+        // cout << "Left-right rotation of root node: " << root->value << endl;
+        root = newRoot;
+        return;
+    } else if (parentNode->value > newRoot->value){
+        // cout << "Left-right rotation insert left of: " << parentNode->value << endl;
+        parentNode->left = newRoot;
+    } else if (parentNode->value < newRoot->value){
+        // cout << "Left-right rotation insert right of: " << parentNode->value << endl;
+        parentNode->right = newRoot;
+    }
+
+    return;
+}
+
+void Tree::RightLeftRotation(Node* rotRoot){
+    Node* newRoot = new Node;
+    Node* temp = rotRoot->right->left->left;
+    newRoot->value = rotRoot->right->left->value;
+    newRoot->right = rotRoot->right;
+    newRoot->right->left = rotRoot->right->left->right;
+    newRoot->left = rotRoot;
+    newRoot->left->right = temp;
+
+    Node* parentNode = FindParent(rotRoot->value);
+    if (parentNode == NULL){
+        // cout << "Right-left rotation of root node: " << root->value << endl;
+        root = newRoot;
+        return;
+    } else if (parentNode->value > newRoot->value){
+        // cout << "Right-left rotation insert left of: " << parentNode->value << endl;
+        parentNode->left = newRoot;
+    } else if (parentNode->value < newRoot->value){
+        // cout << "Right-left rotation insert right of: " << parentNode->value << endl;
+        parentNode->right = newRoot;
+    }
+
+    return;
+}
+
+// Rebalances a single node by considering its balance
+// factor
+void Tree::RebalanceNode(Node* rebalanceRoot){
+    int balanceFactor = GetBalanceFactor(rebalanceRoot);
+
+    if (balanceFactor > 1){
+        if (rebalanceRoot->left != NULL && GetBalanceFactor(rebalanceRoot->left) >= 0){
+            RightRotation(rebalanceRoot);
+        } else {
+            LeftRightRotation(rebalanceRoot);
+        }
         
-        for (list<int>::iterator num1It = num1.begin(); num1It != num1.end(); num1It++){
-            int digit1 = *num1It;
-            int digit2 = *num2It;
+    } else if (balanceFactor < -1){
+        if (rebalanceRoot->right != NULL && GetBalanceFactor(rebalanceRoot->right) <= 0){
+            LeftRotation(rebalanceRoot);
+        } else {
+            RightLeftRotation(rebalanceRoot);
+        }
+    }
+
+    return;
+}
+
+// Checks the balance factor from the given node, all the
+// way to the root, rebalancing and checking the balance
+// factor of each node along the way
+void Tree::RebalanceTree(Node* updatedNode){
+    stack<Node*> stack;
+    Node* currentNode = root;
+
+    while (currentNode != NULL){
+        stack.push(currentNode);
+        if (currentNode->value > updatedNode->value){
+            currentNode = currentNode->left;
+        } else if (currentNode->value < updatedNode->value){
+            currentNode = currentNode->right;
+        } else {
+            currentNode = NULL;
+        }   
+    }
+
+    while (!stack.empty()){
+        RebalanceNode(stack.top());
+        stack.pop();
+    }
+
+    return;
+}
+
+// Helper function for finding where to insert a node
+Node* Tree::FindInsertSpotRecursive(int inputNum, Node* currentNode){
+    if (currentNode->value == inputNum){
+        return NULL;
+
+    } else if (currentNode->left == NULL && currentNode->right == NULL){
+        return currentNode;
+
+    } else if (currentNode->value > inputNum){
+        if (currentNode->left == NULL){
+            return currentNode;
+        }
+        return FindInsertSpotRecursive(inputNum, currentNode->left);
+
+    } else if (currentNode->value < inputNum){
+        if (currentNode->right == NULL){
+            return currentNode;
+        }
+        return FindInsertSpotRecursive(inputNum, currentNode->right);
+    }
+        
+    return NULL;
+}
+
+// Returns the node which the value must be inserted as
+// a child node in the tree
+Node* Tree::FindInsertSpot(int inputNum){    
+    return FindInsertSpotRecursive(inputNum, root);
+}
+
+// Inserts a number into the tree, if it already exists,
+// does nothing
+void Tree::Insert(int inputNum){
+    // cout << "Inserting: " << inputNum << endl;
+    Node* inputNode = new Node;
+    inputNode->value = inputNum;
+    
+    if (Empty()){
+        // cout << "Tree empty, inserting: " << inputNum << " at root" << endl;
+        root = inputNode;
+        // cout << "Root balance: " << GetBalanceFactor(root) << endl;
+        return;
+    }
+
+    // Returns NULL if the input number is already in the tree
+    // When inserting numbers, if one is already in the tree
+    // the insert call returns and does nothing
+    Node* parentNode = FindInsertSpot(inputNum);
+
+    if (parentNode == NULL){
+        // cout << "Already in tree!" << endl;
+        return;
+    } else if (parentNode->value > inputNum){
+        // cout << "Inserting left of: " << parentNode->value << endl;
+        parentNode->left = inputNode;
+    } else if (parentNode->value < inputNum){
+        // cout << "Inserting right of: " << parentNode->value << endl;
+        parentNode->right = inputNode;
+    }
+    
+    RebalanceTree(parentNode);
+
+    return;
+}
+
+// Returns the parent of the node value given, or NULL
+// if no node with that value exists
+Node* Tree::FindParent(int inputNum){
+    queue<Node*> q;
+    q.push(root);
+
+    while (!q.empty()){
+        Node* currentNode = q.front();
+        q.pop();
+
+        if (currentNode->value > inputNum && currentNode->left != NULL){
+            if (currentNode->left->value == inputNum){
+                return currentNode;
+            }
+            q.push(currentNode->left);
+        } else if (currentNode->value < inputNum && currentNode->right != NULL){
+            if (currentNode->right->value == inputNum){
+                return currentNode;
+            }
+            q.push(currentNode->right);
+        }   
+    }
+    
+    return NULL;
+}
+
+// Returns the parent of the node
+// that is the largest value smaller than the value given
+Node* Tree::FindLargestSmallerThanParent(Node* inputNode){
+    Node* parentNode = inputNode;
+    Node* currentNode = inputNode->left;
+    while (currentNode->right != NULL){
+        parentNode = currentNode;
+        currentNode = currentNode->right;
+    }
+
+    return parentNode;
+}
+
+// If the node has 2 children, swap the value of the node
+// to remove with the value of the largest node
+// smaller than it, and delete the swap node instead
+// This effectively deletes the node to be removed
+void Tree::RemoveTwoChildNode(Node* nodeToRemove){
+    Node* swapNodeParent = FindLargestSmallerThanParent(nodeToRemove);
+    Node* swapNode = NULL;
+    char swapNodeParentDir = '0';
+
+    if (swapNodeParent->left != NULL && swapNodeParent->right == NULL){
+        swapNode = swapNodeParent->left;
+        swapNodeParentDir = 'L';
+    } else if (swapNodeParent->left == NULL && swapNodeParent->right != NULL){
+        swapNode = swapNodeParent->right;
+        swapNodeParentDir = 'R';
+    } else if (swapNodeParent->left != NULL && swapNodeParent->right != NULL){
+        if (swapNodeParent->right->value > nodeToRemove->value){
+            swapNode = swapNodeParent->left;
+            swapNodeParentDir = 'L';
+        } else {
+            swapNode = swapNodeParent->right;
+            swapNodeParentDir = 'R';
+        }
+    } else {
+        // cout << "Swap node parent has no children!" << endl;
+    }
+    
+    // cout << "2 child node, largest smaller than node: " << swapNode->value << endl;
+    int removeValue = nodeToRemove->value;
+    nodeToRemove->value = swapNode->value;
+    swapNode->value = removeValue;
+
+    // At this point, the swap node is only ever going to have
+    // 1 child to the left of it, or none
+    // Because if it did have a right child, the right
+    // child would become the new largest smaller than node
+    // So, since we only have 1 node to the left
+    // or no child nodes at all, that is assumed in the
+    // swap node removal code below:
+
+    // No children for swap node
+    if (swapNode->left == NULL){
+        delete swapNode;
+        if (swapNodeParentDir == 'L'){
+            swapNodeParent->left = NULL;
+        } else {
+            swapNodeParent->right = NULL;
+        }
+        
+    // 1 child to the left of swap node
+    } else {
+        Node* temp = swapNode->left;
+        delete swapNode;
+        if (swapNodeParentDir == 'L'){
+            swapNodeParent->left = temp;
+        } else {
+            swapNodeParent->right = temp;
+        }
+    }
+
+    RebalanceTree(swapNodeParent);
+
+    return;
+}
+
+// Removes a value from the tree, if it isn't in the tree,
+// does nothing
+void Tree::Remove(int inputNum){
+    // cout << "Removing: " << inputNum << endl;
+
+    if (Empty()){
+        // cout << "Tree empty!" << endl;
+        return;
+    // Removing the root node (has no parent so is a bit simpler) 
+    } else if (root->value == inputNum){
+        // cout << "Removing root node" << endl;
+
+        if (root->left == NULL && root->right == NULL){
+            delete root;
+            root = NULL;
+
+        } else if (root->left == NULL && root->right != NULL){
+            Node* temp = root->right;
+            delete root;
+            root = temp;
+
+        } else if (root->left != NULL && root->right == NULL){
+            Node* temp = root->left;
+            delete root;
+            root = temp;
+        } else {
+            RemoveTwoChildNode(root);
+        }
+
+        RebalanceTree(root);
+
+        return;
+    }
+    
+    Node* parentNode = FindParent(inputNum);
+    Node* nodeToRemove = NULL;
+    char parentDir = '0';
+
+    // If parentNode is NULL, it isn't in the tree so don't
+    // do anything
+    if (parentNode == NULL){
+        // cout << "Node not in tree!" << endl;
+        return;
+    }
+    
+    // Finding the actual node to remove
+    if (parentNode->value > inputNum){
+        nodeToRemove = parentNode->left;
+        parentDir = 'L';
+    } else {
+        nodeToRemove = parentNode->right;
+        parentDir = 'R';
+    }
+    
+    // cout << "Parent node is: " << parentNode->value << endl;
+
+    if (nodeToRemove->left == NULL && nodeToRemove->right == NULL){
+        delete nodeToRemove;
+        if (parentDir == 'L'){
+            parentNode->left = NULL;
+        } else {
+            parentNode->right = NULL;
+        }
+        RebalanceTree(parentNode);
+        
+    } else if (nodeToRemove->left != NULL && nodeToRemove->right == NULL){
+        Node* temp = nodeToRemove->left;
+        delete nodeToRemove;
+        if (parentDir == 'L'){
+            parentNode->left = temp;
+        } else {
+            parentNode->right = temp;
+        }
+        RebalanceTree(parentNode);
+        
+    } else if (nodeToRemove->left == NULL && nodeToRemove->right != NULL){
+        Node* temp = nodeToRemove->right;
+        delete nodeToRemove;
+        if (parentDir == 'L'){
+            parentNode->left = temp;
+        } else {
+            parentNode->right = temp;
+        }
+        RebalanceTree(parentNode);
+
+    } else {
+        RemoveTwoChildNode(nodeToRemove);
+    }
+
+    return;
+}
+
+// Helper function for printing the values of the tree
+// in pre-order
+void Tree::PrintPreOrderRecursive(Node* currentNode){
+    cout << currentNode->value << " ";
+
+    if (currentNode->left != NULL){
+        PrintPreOrderRecursive(currentNode->left);
+    }
+
+    if (currentNode->right != NULL){
+        PrintPreOrderRecursive(currentNode->right);
+    }
+    
+    return;
+}
+
+// Helper function for printing the values of the tree
+// in-order
+void Tree::PrintInOrderRecursive(Node* currentNode){
+    if (currentNode->left != NULL){
+        PrintInOrderRecursive(currentNode->left);
+    }
+
+    cout << currentNode->value << " ";
+
+    if (currentNode->right != NULL){
+        PrintInOrderRecursive(currentNode->right);
+    }
+    
+    return;
+}
+
+// Helper function for printing the values of the tree
+// in post-order
+void Tree::PrintPostOrderRecursive(Node* currentNode){
+    if (currentNode->left != NULL){
+        PrintPostOrderRecursive(currentNode->left);
+    }
+
+    if (currentNode->right != NULL){
+        PrintPostOrderRecursive(currentNode->right);
+    }
+
+    cout << currentNode->value << " ";
+    
+    return;
+}
+
+// Prints to console the values of the tree in the specified
+// order, or "EMPTY" if the tree doesn't contain values
+void Tree::Print(string order){
+    // cout << "Printing " << order << " order" << endl;
+
+    if (Empty()){
+        cout << "EMPTY" << endl;
+        return;
+    }
+
+    if (order == "PRE"){
+        PrintPreOrderRecursive(root);
+    } else if (order == "IN"){
+        PrintInOrderRecursive(root);
+    } else if (order == "POST"){
+        PrintPostOrderRecursive(root);
+    }
+
+    return;
+}
+
+int main(void){
+    Tree tree;
+
+    // Processing input
+    string input_str;
+    getline(cin, input_str);  
+    stringstream stream_object(input_str);  //stream object initialized with input_str
+    string individual_word;
+
+    while (stream_object >> individual_word) {
+        if (!isdigit(individual_word.at(1))){
+            tree.Print(individual_word);
+        } else {
+            // Converting input string into a character command and number
+            char action = individual_word.at(0);
+            int number = 0;
             
-            if (digit1 > digit2){
-                sub = schoolSubtractionHelper(num1, num2, base);
-                break;
-            } else if (digit1 < digit2){
-                sub = schoolSubtractionHelper(num2, num1, base);
-                negative = true;
-                break;
+            for (int i = 1; i < (int)individual_word.size(); i++){
+                number *= 10;
+                number += individual_word.at(i) - '0';
             }
-
-            num2It++;
-        }
-        // If lopped through whole lists, both numbers are equal, return 0
-        if (sub.size() == 0){
-            sub.push_front(0);
-            return sub;
-        }
-    }
-
-    // Remove leading 0s
-    while (sub.front() == 0){
-        sub.pop_front();
-        // Unless the result is a single 0
-        if (sub.size() == 1){
-            break;
-        }
-    }
-    // If negative, make the first number negative
-    if (negative){
-        sub.front() = -sub.front();
-    }
-    
-    return sub;
-}
-
-list<int> schoolPartialProduct(list<int> num1, int num2, int base){
-    // Initialise base number and carry lists,
-    // base numbers are the right digits of multiplication
-    // carry numbers are the left digits
-    list<int> baseNumbers;
-    list<int> carryNumbers;
-
-    // Loop until the last digit of the first number is multiplied
-    while (!num1.empty()){
-        // Multiply the first digit of the first number by the second
-        int digit = num1.back();
-        num1.pop_back();
-        int prod = digit * num2;
-
-        // Find the modulo of the product and the base, and store that as the first digit of the base number list
-        int remainder = prod % base;
-        baseNumbers.push_front(remainder);
-
-        // If the number is larger than or equal to the base, store the carry in the carry list,
-        // else add 0 to the carry list
-        if (prod >= base){
-            int carry = (prod - remainder)/base;
-            carryNumbers.push_front(carry);
-        } else {
-            carryNumbers.push_front(0);
-        }
-    }
-
-    // This is the addition step where we add the carries together with the base numbers
-    // to get the actual partial product
-    list<int> partialProduct;
-    int additionCarry = 0;
-
-    // Make the back number of the base number list the first digit of the partial product
-    int firstDigit = baseNumbers.back();
-    partialProduct.push_front(firstDigit);
-    baseNumbers.pop_back();
-
-    while (!baseNumbers.empty()){
-        // Add the next back number of the base list with the first back number of the carry list
-        int sum = baseNumbers.back() + carryNumbers.back() + additionCarry;
-        baseNumbers.pop_back();
-        carryNumbers.pop_back();
-
-        // If larger than the base,
-        // make additionCarry = 1 and set next digit to the modulo of the sum and the base
-        if (sum >= base){
-            additionCarry = 1;
-        } else {
-            additionCarry = 0;
-        }
-
-        int digit = sum % base;
-        partialProduct.push_front(digit);
-    }
-    
-    // Add the last carry digit to the front of the partial product list if not 0 or there is an addition carry
-    int lastDigit = carryNumbers.back() + additionCarry;
-    if (lastDigit != 0){
-        partialProduct.push_front(lastDigit);
-    }
-
-    return partialProduct;
-}
-
-list<int> schoolMultiplication(list<int> num1, list<int> num2, int base){
-    // Set the initial product to 0
-    list<int> product;
-    product.push_front(0);
-    int loopsComplete = 0;
-
-    // Loop until the last digit in the second number is done
-    while (!num2.empty()){
-        // Get the partial product of the first digit of num2
-        list<int> partialProduct = schoolPartialProduct(num1, num2.back(), base);
-        num2.pop_back();
-
-        // For however many loops have gone before, add zeros to the end of the partial product
-        for (int i = 0; i < loopsComplete; i++){
-            partialProduct.push_back(0);
-        }
-
-        // Add the current product to the partial product using school addition
-        product = schoolAddition(product, partialProduct, base);
-        
-        loopsComplete++;
-    }
-
-    return product;
-}
-
-list<int> karatsubaMultiplication(list<int> A, list<int> B, int base){
-    // For the input numbers A and B, if either are single digits, perform school multiplication on them and return
-    long unsigned int An = A.size();
-    long unsigned int Bn = B.size();
-
-    if (An == 1 || Bn == 1){
-        return schoolMultiplication(A, B, base);
-    }
-
-    // Make the input A and B have equal digits by adding leading 0s
-    long unsigned int n = Bn;
-    if (An > Bn){
-        n = An;
-    }
-    if (n == An){
-        while (B.size() < n){
-            B.push_front(0);
-        }
-    } else {
-        while (A.size() < n){
-            A.push_front(0);
-        }
-    }
-    
-    // Else, find K for both of them using the number of digits in either number
-    // N = the number of digits in the larger of the 2 numbers
-    // K = ceil(n/2)
-    int k = ceil(n/2.0);
-
-    // Make a0 and b0 equal to the last K digits of a and b, make a1 and b1 equal to the rest
-    list<int> A0;
-    list<int> B0;
-    int loopCount = k;
-    for (int i = 0; i < loopCount; i++){
-        A0.push_front(A.back());
-        A.pop_back();
-        B0.push_front(B.back());
-        B.pop_back();
-    }
-
-    list<int> A1;
-    list<int> B1;
-    while (!A.empty()){
-        A1.push_front(A.back());
-        A.pop_back();
-        B1.push_front(B.back());
-        B.pop_back();
-    }
-
-    // Call the function again 3 times, once for each P inputting them as the new a and b,
-    //    to get the values of P0, P1 and P2
-    list<int> P1a = schoolAddition(A1, A0, base);
-    list<int> P1b = schoolAddition(B1, B0, base);
-    list<int> P0 = karatsubaMultiplication(A0, B0, base);
-    list<int> P1 = karatsubaMultiplication(P1a, P1b, base);
-    list<int> P2 = karatsubaMultiplication(A1, B1, base);
-
-    // Calculate and return the big AxB formula result, subbing in all the calculated values,
-    // using school addition, subtraction and multiplication
-    list<int> P1minusP2 = schoolSubtraction(P1, P2, base);
-    list<int> P1minusP2minusP0 = schoolSubtraction(P1minusP2, P0, base);
-
-    // base^(ceil(n/2)) = Add K 0s to the end of the multiplied numbers, from the K calculated earlier
-    for (int i = 0; i < 2*k; i++){
-        P2.push_back(0);
-    }
-    for (int i = 0; i < k; i++){
-        P1minusP2minusP0.push_back(0);
-    }
-    // list<int> P2Print = P2;
-    // list<int> minusPrint = P1minusP2minusP0;
-    // list<int> P1Print = P1;
-    // cout << "P2: ";
-    // while (!P2Print.empty()){
-    //     cout << P2Print.front();
-    //     P2Print.pop_front();
-    // }
-    // cout << " Mid: ";
-    // while (!minusPrint.empty()){
-    //     cout << minusPrint.front();
-    //     minusPrint.pop_front();
-    // }
-    // cout << " P1: ";
-    // while (!P1Print.empty()){
-    //     cout << P1Print.front();
-    //     P1Print.pop_front();
-    // }
-    // cout << endl;
-
-    return schoolAddition(P2, schoolAddition(P1minusP2minusP0, P0, base), base);
-}
-
-int main(int argc, char const *argv[]){
-    // Get each input number into arrays of integers, and the base
-    list<int> num1;
-    list<int> num2;
-    int base = 0;
-
-    // i=1 to skip the first argument which is just ./main.out
-    for (int i = 1; i < argc; i++){
-        string input = argv[i];
-
-        if (i == 3){
-            base = stoi(input);
-            break;
-        }
-
-        for (int j = 0; j < (int)input.length(); j++){
-            // Doing the usual magic trick of
-            // taking away 0's ASCII code from a number char to convert it into an int
-            int digit = input.at(j) - '0';
-
-            if (i == 1){
-                num1.push_back(digit);
-            } else if (i == 2) {
-                num2.push_back(digit);
+            // Processing character command
+            if (action == 'A'){
+                tree.Insert(number);
+            } else {
+                tree.Remove(number);
             }
         }
     }
-
-    list<int> sum = schoolAddition(num1, num2, base);
-    list<int> product = karatsubaMultiplication(num1, num2, base);
-    // Print the results!
-    while (!sum.empty()){
-        cout << sum.front();
-        sum.pop_front();
-    }
-    cout << " ";
-
-    while (!product.empty()){
-        cout << product.front();
-        product.pop_front();
-    }
-    
-    // Print "0" as the division result as the assignment asks
-    cout << " 0" << endl;
+    cout << endl;
     
     return 0;
 }
