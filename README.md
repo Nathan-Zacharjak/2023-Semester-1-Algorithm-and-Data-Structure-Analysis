@@ -1,2 +1,3 @@
-# 2023-s1-adsa
-Algorithm and Data Structure Analysis Semester 1 2023
+# 2023 Semester 1 Algorithm and Data Structure Analysis
+More advanced dive into C++ and common data objects in programming in general
+Change branches to see work
